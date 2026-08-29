@@ -4,7 +4,7 @@
   "description": "FlowPilot AI — Intelligent Workflow Automation Platform",
   "main": "backend/server.js",
   "scripts": {
-    "build": "cd frontend && npm install && npm run build",
+    "build": "npm run build:frontend",
     "build:frontend": "cd frontend && npm run build",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",

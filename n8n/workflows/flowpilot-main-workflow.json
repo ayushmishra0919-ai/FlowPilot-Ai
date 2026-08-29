@@ -1,0 +1,319 @@
+{
+  "name": "FlowPilot AI - Intelligent Request Router Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "flowpilot-inbound",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "id": "node-webhook-1"
+    },
+    {
+      "parameters": {
+        "functionCode": "// FlowPilot AI - Input Payload Validator\nconst payload = items[0].json;\nconst message = payload.message || payload.text || (payload.body && payload.body.message);\n\nif (!message || message.trim() === '') {\n  throw new Error('FlowPilot Error: Missing required business request message in payload.');\n}\n\nreturn [{\n  json: {\n    message: message.trim(),\n    source: payload.source || 'n8n_inbound_webhook',\n    timestamp: payload.timestamp || new Date().toISOString(),\n    requestId: 'req_n8n_' + Date.now()\n  }\n}];"
+      },
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "id": "node-validator-2"
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "gpt-4o-mini",
+        "prompt": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are FlowPilot AI. Classify the business message, extract entities, identify priority (low/medium/high/urgent) and intent (customer_support, lead, complaint, sales, internal_request, notification, general). Return ONLY valid JSON: {\"intent\": \"...\", \"priority\": \"...\", \"summary\": \"...\", \"customer_name\": \"...\", \"company\": \"...\", \"email\": \"...\", \"requested_action\": \"...\", \"category\": \"...\", \"confidence\": 0.95}"
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.message }}"
+            }
+          ]
+        },
+        "temperature": 0.2
+      },
+      "name": "OpenAI GPT Structuring",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        700,
+        300
+      ],
+      "id": "node-openai-3"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse AI Structured Output\nconst aiResponse = items[0].json.message.content || items[0].json.text || items[0].json;\nlet parsed = {};\n\ntry {\n  parsed = typeof aiResponse === 'string' ? JSON.parse(aiResponse.replace(/```json|```/g, '').trim()) : aiResponse;\n} catch (e) {\n  parsed = {\n    intent: 'general',\n    priority: 'medium',\n    summary: 'Parsed with fallback',\n    customer_name: 'Unknown',\n    requested_action: 'review'\n  };\n}\n\nreturn [{\n  json: {\n    ...items[0].json,\n    aiAnalysis: parsed,\n    intent: parsed.intent || 'general',\n    priority: parsed.priority || 'medium'\n  }\n}];"
+      },
+      "name": "Parse Structured JSON",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        920,
+        300
+      ],
+      "id": "node-parser-4"
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.intent }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "customer_support",
+              "output": 0
+            },
+            {
+              "value2": "lead",
+              "output": 1
+            },
+            {
+              "value2": "complaint",
+              "output": 2
+            }
+          ]
+        },
+        "fallbackOutput": 3
+      },
+      "name": "Conditional Router (Switch)",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        1160,
+        300
+      ],
+      "id": "node-switch-5"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "to": "support@flowpilot.ai",
+        "subject": "=[FlowPilot Support] New Request from {{ $json.aiAnalysis.customer_name }}",
+        "message": "=Customer: {{ $json.aiAnalysis.customer_name }}\n\nSummary: {{ $json.aiAnalysis.summary }}\n\nCategory: {{ $json.aiAnalysis.category }}\nPriority: {{ $json.aiAnalysis.priority }}\n\nAction: {{ $json.aiAnalysis.requested_action }}"
+      },
+      "name": "Route A - Gmail Support Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        120
+      ],
+      "id": "node-gmail-support-6"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": "={{ $env.GOOGLE_SHEET_ID }}",
+        "range": "Inbound Leads!A:H",
+        "options": {},
+        "fieldsUi": {
+          "values": [
+            { "fieldId": "Timestamp", "fieldValue": "={{ $json.timestamp }}" },
+            { "fieldId": "Name", "fieldValue": "={{ $json.aiAnalysis.customer_name }}" },
+            { "fieldId": "Email", "fieldValue": "={{ $json.aiAnalysis.email }}" },
+            { "fieldId": "Company", "fieldValue": "={{ $json.aiAnalysis.company }}" },
+            { "fieldId": "Intent", "fieldValue": "={{ $json.aiAnalysis.intent }}" },
+            { "fieldId": "Priority", "fieldValue": "={{ $json.aiAnalysis.priority }}" },
+            { "fieldId": "Summary", "fieldValue": "={{ $json.aiAnalysis.summary }}" }
+          ]
+        }
+      },
+      "name": "Route B - Google Sheets Sync",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        1440,
+        280
+      ],
+      "id": "node-sheets-lead-7"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "to": "escalations@flowpilot.ai",
+        "subject": "=🚨 [FlowPilot Priority Escalation] {{ $json.aiAnalysis.summary }}",
+        "message": "=URGENT CUSTOMER COMPLAINT\n\nCustomer: {{ $json.aiAnalysis.customer_name }}\nPriority: {{ $json.aiAnalysis.priority }}\n\nSummary:\n{{ $json.aiAnalysis.summary }}\n\nRecommended Action:\n{{ $json.aiAnalysis.requested_action }}"
+      },
+      "name": "Route C - Priority Complaint Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        440
+      ],
+      "id": "node-gmail-complaint-8"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Default Route / General Logging\nreturn [{\n  json: {\n    ...items[0].json,\n    actionExecuted: 'internal_logged',\n    status: 'COMPLETED'\n  }\n}];"
+      },
+      "name": "Route D - General Archive",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        600
+      ],
+      "id": "node-log-general-9"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"intent\": $json.aiAnalysis.intent,\n  \"priority\": $json.aiAnalysis.priority,\n  \"summary\": $json.aiAnalysis.summary,\n  \"customer_name\": $json.aiAnalysis.customer_name,\n  \"executionStatus\": \"completed\",\n  \"action\": $json.actionExecuted || \"executed_successfully\"\n}"
+      },
+      "name": "Return Execution Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1740,
+        340
+      ],
+      "id": "node-response-10"
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "OpenAI GPT Structuring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI GPT Structuring": {
+      "main": [
+        [
+          {
+            "node": "Parse Structured JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Structured JSON": {
+      "main": [
+        [
+          {
+            "node": "Conditional Router (Switch)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conditional Router (Switch)": {
+      "main": [
+        [
+          {
+            "node": "Route A - Gmail Support Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route B - Google Sheets Sync",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route C - Priority Complaint Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route D - General Archive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route A - Gmail Support Alert": {
+      "main": [
+        [
+          {
+            "node": "Return Execution Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route B - Google Sheets Sync": {
+      "main": [
+        [
+          {
+            "node": "Return Execution Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route C - Priority Complaint Alert": {
+      "main": [
+        [
+          {
+            "node": "Return Execution Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route D - General Archive": {
+      "main": [
+        [
+          {
+            "node": "Return Execution Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

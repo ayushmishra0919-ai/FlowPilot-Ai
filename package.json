@@ -4,13 +4,29 @@
   "description": "FlowPilot AI — Intelligent Workflow Automation Platform",
   "main": "backend/server.js",
   "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "build:frontend": "cd frontend && npm run build",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
-    "start": "cd backend && npm start",
-    "build:frontend": "cd frontend && npm run build",
+    "start": "node backend/server.js",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "test": "cd backend && npm test"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "googleapis": "^144.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5",
+    "nodemailer": "^6.10.0",
+    "openai": "^4.85.4",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   },
   "keywords": [
     "ai",
@@ -22,8 +38,5 @@
     "saas"
   ],
   "author": "FlowPilot AI Team",
-  "license": "MIT",
-  "devDependencies": {
-    "concurrently": "^9.1.2"
-  }
+  "license": "MIT"
 }

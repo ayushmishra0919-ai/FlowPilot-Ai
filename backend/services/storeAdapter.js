@@ -11,12 +11,17 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const { INTENTS, PRIORITIES, ACTIONS, WORKFLOW_STATUS, EXECUTION_STATUS } = require('../config/constants');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+const isVercel = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const DATA_DIR = isVercel ? path.join('/tmp', 'flowpilot_data') : path.join(__dirname, '..', 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
 // Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (e) {
+  // Gracefully continue if directory creation is restricted
 }
 
 // In-memory cache synced with disk

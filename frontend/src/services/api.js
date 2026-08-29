@@ -1,7 +1,12 @@
 import axios from 'axios';
 
+// Dynamically determine API baseURL:
+// 1. If VITE_API_URL is provided in environment variables, use it.
+// 2. Otherwise default to '/api' for same-domain proxying/rewrites in production and Vite dev.
+const baseURL = import.meta.env.VITE_API_URL || '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL,
   headers: {
     'Content-Type': 'application/json'
   }

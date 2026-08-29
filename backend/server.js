@@ -1,6 +1,6 @@
 /**
  * FlowPilot AI — Intelligent Workflow Automation Platform
- * Express Server Entry Point
+ * Express Server Entry Point (Supports both Standalone Node.js & Vercel Serverless)
  */
 
 require('dotenv').config();
@@ -31,6 +31,16 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Ensure DB connection for Serverless & Standalone execution
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+  } catch (err) {
+    // Non-blocking database connection attempt
+  }
+  next();
+});
+
 // Request Logging Middleware (Development)
 app.use((req, res, next) => {
   if (process.env.NODE_ENV !== 'test') {
@@ -40,8 +50,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health & System Diagnostic Endpoint
-app.get('/api/health', (req, res) => {
+// Health & System Diagnostic Endpoint (Supports both /api/health and /health)
+const healthHandler = (req, res) => {
   const dbStatus = getDbStatus();
   res.json({
     status: 'HEALTHY',
@@ -51,24 +61,41 @@ app.get('/api/health', (req, res) => {
     uptimeSeconds: Math.floor(process.uptime()),
     database: dbStatus,
     aiEngine: process.env.OPENAI_API_KEY ? 'OpenAI GPT (Live)' : 'FlowPilot Intelligent NLP Engine (Demo/Fallback)',
-    demoMode: process.env.DEMO_MODE !== 'false'
+    demoMode: process.env.DEMO_MODE !== 'false',
+    deployment: process.env.VERCEL ? 'Vercel Serverless' : 'Node.js Standalone'
   });
-});
+};
 
-// Mount Application Routes
+app.get('/api/health', healthHandler);
+app.get('/health', healthHandler);
+
+// Mount Application Routes (Mounted with /api prefix and root alias for flexible routing)
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
+
 app.use('/api/workflows', workflowRoutes);
+app.use('/workflows', workflowRoutes);
+
 app.use('/api/requests', requestRoutes);
+app.use('/requests', requestRoutes);
+
 app.use('/api/executions', executionRoutes);
+app.use('/executions', executionRoutes);
+
 app.use('/api/webhook', webhookRoutes);
+app.use('/webhook', webhookRoutes);
+
 app.use('/api/analytics', analyticsRoutes);
+app.use('/analytics', analyticsRoutes);
+
 app.use('/api/settings', settingsRoutes);
+app.use('/settings', settingsRoutes);
 
 // Error Handling Middlewares
 app.use(notFound);
 app.use(errorHandler);
 
-// Connect DB & Start Server
+// Connect DB & Start Standalone Server
 let server;
 const startServer = async () => {
   await connectDB();

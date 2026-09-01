@@ -22,12 +22,18 @@ const createRateLimiter = ({ windowMs = 60 * 1000, max = 60, message = 'Too many
   }
 
   return (req, res, next) => {
-    // In test or serverless diagnostic bypass if needed
+    // Never rate limit OPTIONS preflight requests
+    if (req.method === 'OPTIONS') {
+      return next();
+    }
+
+    // In test environment, bypass rate limits
     if (process.env.NODE_ENV === 'test') {
       return next();
     }
 
-    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const rawIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '127.0.0.1';
+    const ip = typeof rawIp === 'string' ? rawIp.split(',')[0].trim() : '127.0.0.1';
     const now = Date.now();
 
     // Inline cleanup if map grows
@@ -65,6 +71,6 @@ const createRateLimiter = ({ windowMs = 60 * 1000, max = 60, message = 'Too many
 
 module.exports = {
   createRateLimiter,
-  authRateLimiter: createRateLimiter({ windowMs: 15 * 60 * 1000, max: 30, message: 'Too many authentication attempts. Please try again after 15 minutes.' }),
+  authRateLimiter: createRateLimiter({ windowMs: 15 * 60 * 1000, max: 60, message: 'Too many authentication attempts. Please try again after 15 minutes.' }),
   webhookRateLimiter: createRateLimiter({ windowMs: 60 * 1000, max: 120, message: 'Webhook rate limit exceeded. Max 120 requests per minute.' })
 };

@@ -78,7 +78,20 @@ const login = async (req, res, next) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const user = await Users.findOne({ email: normalizedEmail });
+    let user = await Users.findOne({ email: normalizedEmail });
+
+    // Ensure default demo admin user exists even on a fresh serverless cold-start
+    if (!user && (normalizedEmail === 'demo@flowpilot.ai' || normalizedEmail === 'admin@flowpilot.ai')) {
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash('password123', salt);
+      user = await Users.create({
+        _id: 'user-admin-001',
+        name: 'Alex Vance',
+        email: normalizedEmail,
+        passwordHash,
+        role: 'admin'
+      });
+    }
 
     if (!user) {
       return res.status(401).json({

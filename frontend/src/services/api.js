@@ -1,20 +1,32 @@
 import axios from 'axios';
 
+// Default production Vercel backend URL
+export const DEFAULT_PRODUCTION_BACKEND_URL = 'https://flowpilot-ai-backend-7m6agqg3c-ayushmishra0919-6493s-projects.vercel.app';
+
 /**
  * Dynamically resolves the API base URL.
- * Checks VITE_API_BASE_URL (standard), VITE_API_URL, or defaults to '/api' for relative proxying.
+ * 1. Checks VITE_API_BASE_URL (standard) or VITE_API_URL if provided.
+ * 2. In deployed production environment (non-localhost), automatically routes to the live Vercel backend URL.
+ * 3. In local development, defaults to '/api' (proxied by Vite dev server to localhost:5000).
  */
 const getBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
-  if (!envUrl) {
-    return '/api';
+  if (envUrl && envUrl.trim()) {
+    const cleanUrl = envUrl.trim().replace(/\/+$/, '');
+    return cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`;
   }
-  const cleanUrl = envUrl.trim().replace(/\/+$/, '');
-  // If the base URL already ends with /api, use it; otherwise append /api
-  if (cleanUrl.endsWith('/api')) {
-    return cleanUrl;
+
+  // If running in a deployed browser (e.g. *.vercel.app, custom domain), use the live Vercel backend
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname &&
+    !window.location.hostname.includes('localhost') &&
+    !window.location.hostname.includes('127.0.0.1')
+  ) {
+    return `${DEFAULT_PRODUCTION_BACKEND_URL}/api`;
   }
-  return `${cleanUrl}/api`;
+
+  return '/api';
 };
 
 export const API_BASE_URL = getBaseUrl();
@@ -24,7 +36,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  timeout: 30000 // 30s timeout for AI generation / serverless cold start
+  timeout: 30000 // 30s timeout for serverless / AI processing
 });
 
 // Request interceptor to attach JWT token

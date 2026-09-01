@@ -50,7 +50,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health & System Diagnostic Endpoint (Supports both /api/health and /health)
+// Root & Health Diagnostic Endpoint
 const healthHandler = (req, res) => {
   const dbStatus = getDbStatus();
   res.json({
@@ -65,6 +65,38 @@ const healthHandler = (req, res) => {
     deployment: process.env.VERCEL ? 'Vercel Serverless' : 'Node.js Standalone'
   });
 };
+
+app.get('/', (req, res) => {
+  res.json({
+    name: 'FlowPilot AI API',
+    status: 'ONLINE',
+    version: '1.0.0',
+    docs: '/api/health',
+    endpoints: {
+      health: '/api/health',
+      webhook: '/api/webhook/request',
+      workflows: '/api/workflows',
+      executions: '/api/executions',
+      analytics: '/api/analytics',
+      auth: '/api/auth/login'
+    }
+  });
+});
+
+app.get('/api', (req, res) => {
+  res.json({
+    name: 'FlowPilot AI API',
+    status: 'ONLINE',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      webhook: '/api/webhook/request',
+      workflows: '/api/workflows',
+      executions: '/api/executions',
+      analytics: '/api/analytics'
+    }
+  });
+});
 
 app.get('/api/health', healthHandler);
 app.get('/health', healthHandler);
@@ -116,4 +148,6 @@ if (require.main === module) {
   startServer();
 }
 
-module.exports = { app, startServer };
+module.exports = app;
+module.exports.app = app;
+module.exports.startServer = startServer;

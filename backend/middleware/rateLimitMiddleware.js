@@ -1,14 +1,14 @@
 /**
  * FlowPilot AI Rate Limiting Middleware
  * Zero-dependency in-memory sliding-window rate limiter for protecting
- * authentication and webhook endpoints against abuse.
+ * authentication and webhook endpoints against abuse (Serverless & Standalone compatible).
  */
 
 const createRateLimiter = ({ windowMs = 60 * 1000, max = 60, message = 'Too many requests, please try again later.' } = {}) => {
   const hits = new Map();
 
-  // Cleanup expired buckets every minute
-  setInterval(() => {
+  // Periodic cleanup with unref() so the serverless event loop is never blocked
+  const timer = setInterval(() => {
     const now = Date.now();
     for (const [key, record] of hits.entries()) {
       if (now - record.startTime > windowMs) {
@@ -17,14 +17,27 @@ const createRateLimiter = ({ windowMs = 60 * 1000, max = 60, message = 'Too many
     }
   }, windowMs);
 
+  if (timer.unref) {
+    timer.unref();
+  }
+
   return (req, res, next) => {
-    // In test environment, bypass rate limits
+    // In test or serverless diagnostic bypass if needed
     if (process.env.NODE_ENV === 'test') {
       return next();
     }
 
     const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
     const now = Date.now();
+
+    // Inline cleanup if map grows
+    if (hits.size > 200) {
+      for (const [key, record] of hits.entries()) {
+        if (now - record.startTime > windowMs) {
+          hits.delete(key);
+        }
+      }
+    }
 
     let record = hits.get(ip);
     if (!record || now - record.startTime > windowMs) {

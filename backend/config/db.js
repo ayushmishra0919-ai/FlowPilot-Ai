@@ -1,34 +1,55 @@
 /**
  * Database Connection Manager
- * Gracefully manages MongoDB connection if available, or activates the embedded
- * zero-config JSON database adapter.
+ * Gracefully manages MongoDB connection if available (with serverless connection caching),
+ * or activates the embedded zero-config JSON database adapter.
  */
 
 const mongoose = require('mongoose');
-const storeAdapter = require('../services/storeAdapter');
 
 let isMongoConnected = false;
+let cachedPromise = null;
 
 const connectDB = async () => {
   const uri = process.env.MONGODB_URI;
 
-  if (!uri || process.env.NODE_ENV === 'test') {
-    console.log('⚡ [Database] Running in FlowPilot Embedded Persistent Store (data/db.json).');
+  if (!uri || uri.trim() === '' || uri === 'YOUR_MONGODB_URI_HERE' || process.env.NODE_ENV === 'test') {
     return { type: 'EMBEDDED_JSON', connected: true };
   }
 
+  // If already connected in this serverless container, reuse connection
+  if (mongoose.connection.readyState === 1) {
+    isMongoConnected = true;
+    return { type: 'MONGODB', connected: true, host: mongoose.connection.host };
+  }
+
+  // If a connection is already in progress, await the cached promise
+  if (cachedPromise) {
+    try {
+      await cachedPromise;
+      if (mongoose.connection.readyState === 1) {
+        isMongoConnected = true;
+        return { type: 'MONGODB', connected: true, host: mongoose.connection.host };
+      }
+    } catch (e) {
+      cachedPromise = null;
+    }
+  }
+
   try {
-    // Attempt connecting to MongoDB with a short timeout to prevent blocking if Mongo is offline
-    const conn = await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 3000,
-      connectTimeoutMS: 3000
+    cachedPromise = mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 4000,
+      connectTimeoutMS: 4000
     });
+
+    const conn = await cachedPromise;
     isMongoConnected = true;
     console.log(`✅ [Database] MongoDB Connected: ${conn.connection.host}`);
     return { type: 'MONGODB', connected: true, host: conn.connection.host };
   } catch (error) {
-    console.log(`ℹ️ [Database] Local MongoDB unavailable (${error.message}).`);
-    console.log('⚡ [Database] Gracefully activated FlowPilot Embedded Persistent Store (data/db.json). Zero configuration needed.');
+    cachedPromise = null;
+    isMongoConnected = false;
+    console.warn(`ℹ️ [Database] MongoDB connection attempt failed (${error.message}).`);
+    console.log('⚡ [Database] Running in FlowPilot Embedded Persistent Store (Serverless/Local fallback).');
     return { type: 'EMBEDDED_JSON', connected: true, fallbackReason: error.message };
   }
 };
@@ -36,7 +57,7 @@ const connectDB = async () => {
 const getDbStatus = () => ({
   isMongoConnected,
   type: isMongoConnected ? 'MONGODB' : 'EMBEDDED_JSON',
-  storagePath: 'data/db.json'
+  storagePath: isMongoConnected ? 'MongoDB Database' : 'data/db.json (Memory + Disk)'
 });
 
 module.exports = {

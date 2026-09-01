@@ -59,13 +59,13 @@
         ]
       },
       "stats": {
-        "totalExecutions": 149,
-        "successfulExecutions": 145,
+        "totalExecutions": 150,
+        "successfulExecutions": 146,
         "failedExecutions": 4,
-        "lastExecutedAt": "2026-08-29T09:02:20.997Z"
+        "lastExecutedAt": "2026-09-01T07:24:29.259Z"
       },
       "createdAt": "2026-08-06T13:23:56.944Z",
-      "updatedAt": "2026-08-29T09:02:20.998Z"
+      "updatedAt": "2026-09-01T07:24:29.260Z"
     },
     {
       "_id": "wf-lead-002",
@@ -157,6 +157,17 @@
   ],
   "requests": [
     {
+      "_id": "req-b48d6c65",
+      "userId": "user-admin-001",
+      "workflowId": "wf-support-001",
+      "rawMessage": "Rahul from ABC Technologies wants an enterprise product demo. Please notify the sales team.",
+      "source": "website_contact_form",
+      "metadata": {},
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-09-01T07:24:29.231Z",
+      "updatedAt": "2026-09-01T07:24:29.231Z"
+    },
+    {
       "_id": "req-742b6104",
       "userId": "user-admin-001",
       "workflowId": "wf-support-001",
@@ -232,6 +243,37 @@
     }
   ],
   "aiAnalyses": [
+    {
+      "_id": "ai-70b5ac5c",
+      "userId": "user-admin-001",
+      "workflowId": "wf-support-001",
+      "requestId": "req-b48d6c65",
+      "intent": "lead",
+      "priority": "medium",
+      "summary": "Rahul from ABC Technologies requested product demo and enterprise pricing.",
+      "customer_name": "Rahul",
+      "company": "ABC Technologies",
+      "email": "rahul@example.com",
+      "requested_action": "notify_sales",
+      "category": "sales_lead",
+      "sentiment": "positive",
+      "confidence": 0.95,
+      "rawAiResponse": {
+        "intent": "lead",
+        "priority": "medium",
+        "summary": "Rahul from ABC Technologies requested product demo and enterprise pricing.",
+        "customer_name": "Rahul",
+        "company": "ABC Technologies",
+        "email": "rahul@example.com",
+        "requested_action": "notify_sales",
+        "category": "sales_lead",
+        "sentiment": "positive",
+        "confidence": 0.95
+      },
+      "modelUsed": "gpt-4o-mini (Simulated)",
+      "createdAt": "2026-09-01T07:24:29.244Z",
+      "updatedAt": "2026-09-01T07:24:29.244Z"
+    },
     {
       "_id": "ai-2710aa8b",
       "userId": "user-admin-001",
@@ -445,6 +487,117 @@
     }
   ],
   "executions": [
+    {
+      "_id": "exec-c2f7dd92",
+      "userId": "user-admin-001",
+      "workflowId": "wf-support-001",
+      "requestId": "req-b48d6c65",
+      "input": {
+        "message": "Rahul from ABC Technologies wants an enterprise product demo. Please notify the sales team.",
+        "source": "website_contact_form",
+        "timestamp": "2026-09-01T07:24:29.227Z",
+        "metadata": {}
+      },
+      "aiAnalysis": {
+        "intent": "lead",
+        "priority": "medium",
+        "summary": "Rahul from ABC Technologies requested product demo and enterprise pricing.",
+        "customer_name": "Rahul",
+        "company": "ABC Technologies",
+        "email": "rahul@example.com",
+        "requested_action": "notify_sales",
+        "category": "sales_lead",
+        "sentiment": "positive",
+        "confidence": 0.95
+      },
+      "route": {
+        "matchedRuleId": "system-default-rule",
+        "condition": "intent == lead (Default Route)",
+        "targetAction": "google_sheets_insert",
+        "actionParams": {
+          "sheetName": "Inbound Leads CRM",
+          "notifySales": true,
+          "salesRecipient": "sales@flowpilot.ai",
+          "salesSubject": "[FlowPilot AI] New Sales Lead: Rahul (ABC Technologies)"
+        },
+        "isDefaultFallback": true
+      },
+      "actionResult": {
+        "status": "SUCCESS",
+        "mode": "DEMO",
+        "action": "google_sheets_insert",
+        "sheetName": "Inbound Leads CRM",
+        "rowInserted": {
+          "timestamp": "2026-09-01 07:24:29",
+          "name": "Rahul",
+          "email": "rahul@example.com",
+          "company": "ABC Technologies",
+          "request": "Rahul from ABC Technologies wants an enterprise product demo. Please notify the sales team.",
+          "intent": "lead",
+          "priority": "medium",
+          "summary": "Rahul from ABC Technologies requested product demo and enterprise pricing.",
+          "recommended_action": "notify sales",
+          "status": "New"
+        },
+        "details": "[DEMO MODE] Row appended to FlowPilot Mock Google Sheet [Inbound Leads CRM]. Live credentials not configured in .env. & Sales alert sent.",
+        "secondaryAction": {
+          "action": "gmail_notification",
+          "status": "SUCCESS",
+          "mode": "DEMO",
+          "recipient": "sales@flowpilot.ai",
+          "subject": "[FlowPilot AI] New Sales Lead: Rahul (ABC Technologies)",
+          "messageId": "demo-msg-1788247469256",
+          "details": "[DEMO MODE] Email recorded in FlowPilot Simulated Mailbox for sales@flowpilot.ai. Live Gmail SMTP credentials not configured in .env."
+        }
+      },
+      "status": "COMPLETED",
+      "durationMs": 29,
+      "timeline": [
+        {
+          "step": "RECEIVED",
+          "timestamp": "2026-09-01T07:24:29.227Z",
+          "status": "SUCCESS",
+          "details": "Received inbound request payload from source: website_contact_form"
+        },
+        {
+          "step": "AI_PROCESSING",
+          "timestamp": "2026-09-01T07:24:29.238Z",
+          "status": "SUCCESS",
+          "details": "Invoking AI Structuring Engine (gpt-4o-mini)..."
+        },
+        {
+          "step": "ANALYZED",
+          "timestamp": "2026-09-01T07:24:29.244Z",
+          "durationMs": 6,
+          "status": "SUCCESS",
+          "details": "Intent: lead | Priority: medium | Entity: Rahul (ABC Technologies)"
+        },
+        {
+          "step": "ROUTED",
+          "timestamp": "2026-09-01T07:24:29.246Z",
+          "durationMs": 1,
+          "status": "SUCCESS",
+          "details": "Matched condition [intent == lead (Default Route)] -> Target Action [google_sheets_insert]"
+        },
+        {
+          "step": "ACTION_EXECUTED",
+          "timestamp": "2026-09-01T07:24:29.247Z",
+          "durationMs": 9,
+          "status": "SUCCESS",
+          "details": "[DEMO MODE] Row appended to FlowPilot Mock Google Sheet [Inbound Leads CRM]. Live credentials not configured in .env. & Sales alert sent."
+        },
+        {
+          "step": "COMPLETED",
+          "timestamp": "2026-09-01T07:24:29.256Z",
+          "durationMs": 29,
+          "status": "SUCCESS",
+          "details": "Workflow execution finished successfully in 29ms. Receipt exec-c2f7dd92"
+        }
+      ],
+      "isDemo": true,
+      "createdAt": "2026-09-01T07:24:29.256Z",
+      "updatedAt": "2026-09-01T07:24:29.256Z"
+    },
     {
       "_id": "exec-060c27e8",
       "userId": "user-admin-001",
@@ -1417,6 +1570,22 @@
   },
   "mockGoogleSheet": [
     {
+      "_id": "sheet-row-1788247469248",
+      "id": "sheet-row-1788247469248",
+      "timestamp": "2026-09-01 07:24:29",
+      "name": "Rahul",
+      "email": "rahul@example.com",
+      "company": "ABC Technologies",
+      "request": "Rahul from ABC Technologies wants an enterprise product demo. Please notify the sales team.",
+      "intent": "lead",
+      "priority": "medium",
+      "summary": "Rahul from ABC Technologies requested product demo and enterprise pricing.",
+      "recommended_action": "notify sales",
+      "status": "New",
+      "createdAt": "2026-09-01T07:24:29.248Z",
+      "updatedAt": "2026-09-01T07:24:29.248Z"
+    },
+    {
       "_id": "sheet-row-1787993787551",
       "id": "sheet-row-1787993787551",
       "timestamp": "2026-08-29 08:56:27",
@@ -1519,6 +1688,19 @@
     }
   ],
   "mockGmailInbox": [
+    {
+      "_id": "moc-ca60244e-8436-4806-8381-627f2d020b89",
+      "recipient": "sales@flowpilot.ai",
+      "sender": "FlowPilot AI Automation <automation@flowpilot.ai>",
+      "subject": "[FlowPilot AI] New Sales Lead: Rahul (ABC Technologies)",
+      "html": "\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"utf-8\">\n  <style>\n    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }\n    .container { max-width: 600px; margin: 0 auto; background: #1e293b; border-radius: 12px; overflow: hidden; border: 1px solid #334155; }\n    .header { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); padding: 24px; text-align: left; border-bottom: 2px solid #3b82f6; }\n    .header h1 { margin: 0; font-size: 20px; color: #ffffff; font-weight: 700; }\n    .badge { display: inline-block; background-color: #3b82f6; color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 9999px; text-transform: uppercase; margin-top: 8px; }\n    .content { padding: 24px; }\n    .card { background: #0f172a; border-radius: 8px; padding: 16px; margin-bottom: 16px; border: 1px solid #334155; }\n    .field-label { font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em; margin-bottom: 4px; }\n    .field-value { font-size: 15px; color: #f1f5f9; font-weight: 500; }\n    .action-box { background: #172554; border-left: 4px solid #3b82f6; padding: 14px; border-radius: 4px; margin-top: 16px; }\n    .footer { padding: 16px 24px; background: #0f172a; border-top: 1px solid #334155; font-size: 12px; color: #64748b; text-align: center; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>⚡ FlowPilot AI — Automated Request Notification</h1>\n      <span class=\"badge\">MEDIUM</span>\n    </div>\n    <div class=\"content\">\n      <p style=\"margin-top:0; color:#cbd5e1; font-size: 14px;\">An incoming business request was processed by FlowPilot AI and automatically routed for your attention:</p>\n      \n      <div class=\"card\">\n        <div class=\"field-label\">Customer / Requestor</div>\n        <div class=\"field-value\">Rahul (ABC Technologies)</div>\n      </div>\n\n      \n      <div class=\"card\">\n        <div class=\"field-label\">Company</div>\n        <div class=\"field-value\">ABC Technologies</div>\n      </div>\n      \n\n      <div class=\"card\">\n        <div class=\"field-label\">AI Summary</div>\n        <div class=\"field-value\">Rahul from ABC Technologies requested product demo and enterprise pricing.</div>\n      </div>\n\n      <div style=\"display: flex; gap: 12px;\">\n        <div class=\"card\" style=\"flex: 1;\">\n          <div class=\"field-label\">Intent</div>\n          <div class=\"field-value\" style=\"color: #60a5fa; text-transform: capitalize;\">lead</div>\n        </div>\n        <div class=\"card\" style=\"flex: 1;\">\n          <div class=\"field-label\">Priority</div>\n          <div class=\"field-value\" style=\"color: #3b82f6; text-transform: uppercase; font-weight: bold;\">medium</div>\n        </div>\n      </div>\n\n      <div class=\"action-box\">\n        <div class=\"field-label\" style=\"color: #93c5fd;\">Recommended Action</div>\n        <div class=\"field-value\" style=\"color: #ffffff; font-weight: 600;\">NOTIFY SALES</div>\n      </div>\n    </div>\n    <div class=\"footer\">\n      Generated automatically by FlowPilot AI Workflow Automation Platform.\n    </div>\n  </div>\n</body>\n</html>\n  ",
+      "text": "Customer: Rahul\nCompany: ABC Technologies\nIntent: lead\nPriority: medium\nSummary: Rahul from ABC Technologies requested product demo and enterprise pricing.\nRecommended Action: notify_sales",
+      "timestamp": "2026-09-01T07:24:29.253Z",
+      "isPriority": false,
+      "mode": "DEMO",
+      "createdAt": "2026-09-01T07:24:29.253Z",
+      "updatedAt": "2026-09-01T07:24:29.253Z"
+    },
     {
       "_id": "moc-b1f58d22-7c7f-4aa9-b3b8-12bb1e46c981",
       "recipient": "support@flowpilot.ai",

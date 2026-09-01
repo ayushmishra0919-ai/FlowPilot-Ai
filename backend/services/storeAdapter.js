@@ -455,7 +455,14 @@ function saveStore() {
 }
 
 // Initialize on module load
-loadStore();
+let initPromise = null;
+function ensureStoreLoaded() {
+  if (!initPromise) {
+    initPromise = loadStore();
+  }
+  return initPromise;
+}
+initPromise = loadStore();
 
 // Generic Store Collection Helper
 class StoreCollection {
@@ -464,6 +471,7 @@ class StoreCollection {
   }
 
   async find(filter = {}) {
+    await ensureStoreLoaded();
     let items = memoryStore[this.name] || [];
     return items.filter(item => {
       for (const [key, val] of Object.entries(filter)) {
@@ -474,16 +482,19 @@ class StoreCollection {
   }
 
   async findById(id) {
+    await ensureStoreLoaded();
     const items = memoryStore[this.name] || [];
     return items.find(item => item._id === id || item.id === id) || null;
   }
 
   async findOne(filter = {}) {
+    await ensureStoreLoaded();
     const items = await this.find(filter);
     return items[0] || null;
   }
 
   async create(doc) {
+    await ensureStoreLoaded();
     if (!memoryStore[this.name]) {
       memoryStore[this.name] = [];
     }
@@ -499,6 +510,7 @@ class StoreCollection {
   }
 
   async findByIdAndUpdate(id, updates) {
+    await ensureStoreLoaded();
     const items = memoryStore[this.name] || [];
     const index = items.findIndex(item => item._id === id || item.id === id);
     if (index === -1) return null;
@@ -513,6 +525,7 @@ class StoreCollection {
   }
 
   async findByIdAndDelete(id) {
+    await ensureStoreLoaded();
     const items = memoryStore[this.name] || [];
     const index = items.findIndex(item => item._id === id || item.id === id);
     if (index === -1) return null;
@@ -523,6 +536,7 @@ class StoreCollection {
   }
 
   async countDocuments(filter = {}) {
+    await ensureStoreLoaded();
     const items = await this.find(filter);
     return items.length;
   }
@@ -537,8 +551,12 @@ module.exports = {
   Integrations: new StoreCollection('integrations'),
   MockGoogleSheet: new StoreCollection('mockGoogleSheet'),
   MockGmailInbox: new StoreCollection('mockGmailInbox'),
-  getSettings: async () => memoryStore.settings || {},
+  getSettings: async () => {
+    await ensureStoreLoaded();
+    return memoryStore.settings || {};
+  },
   updateSettings: async (newSettings) => {
+    await ensureStoreLoaded();
     memoryStore.settings = { ...memoryStore.settings, ...newSettings };
     saveStore();
     return memoryStore.settings;

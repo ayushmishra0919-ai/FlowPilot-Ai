@@ -79,14 +79,19 @@ api.interceptors.response.use(
 );
 
 /**
- * Health check helper function
+ * Health check helper function (tries /health and /api/health)
  */
 export const checkBackendHealth = async () => {
   try {
     const res = await api.get('/health');
     return { ok: true, data: res.data };
   } catch (err) {
-    return { ok: false, error: err.friendlyMessage || err.message };
+    try {
+      const res2 = await api.get('/api/health');
+      return { ok: true, data: res2.data };
+    } catch (e) {
+      return { ok: false, error: err.friendlyMessage || err.message };
+    }
   }
 };
 

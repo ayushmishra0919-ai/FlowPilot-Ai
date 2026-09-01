@@ -15,19 +15,28 @@ export const AuthProvider = ({ children }) => {
 
       if (savedToken && savedUser) {
         try {
-          setUser(JSON.parse(savedUser));
-          // Verify with backend
+          const parsed = JSON.parse(savedUser);
+          setUser(parsed);
+          // Verify session with live backend
           const res = await api.get('/auth/me');
           if (res.data?.user) {
             setUser(res.data.user);
             localStorage.setItem('flowpilot_user', JSON.stringify(res.data.user));
           }
         } catch (err) {
-          console.warn('Session expired, logging out');
-          logout();
+          // If token explicitly expired (401) on a non-demo account, log out
+          if (err.response?.status === 401) {
+            try {
+              const parsed = JSON.parse(savedUser);
+              if (parsed.email !== 'demo@flowpilot.ai') {
+                console.warn('Session expired, logging out');
+                logout();
+              }
+            } catch (e) {
+              logout();
+            }
+          }
         }
-      } else {
-        // Automatically provide demo guest session if desired, or keep as null
       }
       setLoading(false);
     };
@@ -36,17 +45,39 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    const res = await api.post('/auth/login', { email, password });
-    const { token: newToken, user: newUser } = res.data;
-    setToken(newToken);
-    setUser(newUser);
-    localStorage.setItem('flowpilot_token', newToken);
-    localStorage.setItem('flowpilot_user', JSON.stringify(newUser));
-    return newUser;
+    const normalizedEmail = email.toLowerCase().trim();
+    try {
+      const res = await api.post('/auth/login', { email: normalizedEmail, password });
+      const { token: newToken, user: newUser } = res.data;
+      setToken(newToken);
+      setUser(newUser);
+      localStorage.setItem('flowpilot_token', newToken);
+      localStorage.setItem('flowpilot_user', JSON.stringify(newUser));
+      return newUser;
+    } catch (err) {
+      // If authenticating demo account and network/cold-start occurs, provide offline demo fallback
+      if (normalizedEmail === 'demo@flowpilot.ai' && password === 'password123') {
+        const demoUser = {
+          id: 'user-admin-001',
+          name: 'Alex Vance',
+          email: 'demo@flowpilot.ai',
+          role: 'admin',
+          createdAt: new Date().toISOString()
+        };
+        const demoToken = 'flowpilot_demo_jwt_token_' + Date.now();
+        setToken(demoToken);
+        setUser(demoUser);
+        localStorage.setItem('flowpilot_token', demoToken);
+        localStorage.setItem('flowpilot_user', JSON.stringify(demoUser));
+        return demoUser;
+      }
+      throw err;
+    }
   };
 
   const register = async (name, email, password) => {
-    const res = await api.post('/auth/register', { name, email, password });
+    const normalizedEmail = email.toLowerCase().trim();
+    const res = await api.post('/auth/register', { name, email: normalizedEmail, password });
     const { token: newToken, user: newUser } = res.data;
     setToken(newToken);
     setUser(newUser);

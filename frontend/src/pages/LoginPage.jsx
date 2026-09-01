@@ -22,11 +22,11 @@ const LoginPage = () => {
 
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email.trim(), password);
       toast.success('Welcome back to FlowPilot AI!');
       navigate('/dashboard');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Login failed. Please verify credentials.');
+      toast.error(err.friendlyMessage || err.response?.data?.message || 'Login failed. Please verify credentials.');
     } finally {
       setLoading(false);
     }
@@ -41,7 +41,7 @@ const LoginPage = () => {
       toast.success('Logged in with Demo Administrator Account.');
       navigate('/dashboard');
     } catch (err) {
-      toast.error('Could not authenticate demo account.');
+      toast.error(err.friendlyMessage || err.response?.data?.message || 'Could not authenticate demo account.');
     } finally {
       setLoading(false);
     }

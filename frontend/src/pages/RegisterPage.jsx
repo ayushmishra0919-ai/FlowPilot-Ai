@@ -23,11 +23,11 @@ const RegisterPage = () => {
 
     setLoading(true);
     try {
-      await register(name, email, password);
+      await register(name.trim(), email.trim(), password);
       toast.success('Account created successfully! Welcome to FlowPilot AI.');
       navigate('/dashboard');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Registration failed. Please try again.');
+      toast.error(err.friendlyMessage || err.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }

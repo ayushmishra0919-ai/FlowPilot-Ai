@@ -19,7 +19,7 @@ import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import api from '../services/api';
+import api, { API_BASE_URL, checkBackendHealth } from '../services/api';
 
 const SettingsPage = () => {
   const { user } = useAuth();
@@ -37,24 +37,52 @@ const SettingsPage = () => {
   const [temperature, setTemperature] = useState(0.2);
   const [customPrompt, setCustomPrompt] = useState('');
   const [demoMode, setDemoMode] = useState(true);
+  const [backendHealth, setBackendHealth] = useState(null);
+  const [checkingHealth, setCheckingHealth] = useState(false);
 
   const fetchSettingsData = async () => {
     try {
-      const [setRes, mockRes] = await Promise.all([
+      const [setRes, mockRes, healthRes] = await Promise.allSettled([
         api.get('/settings'),
-        api.get('/settings/mock-data')
+        api.get('/settings/mock-data'),
+        checkBackendHealth()
       ]);
-      const s = setRes.data?.data;
-      setSettings(s);
-      setModel(s?.ai?.model || 'gpt-4o-mini');
-      setTemperature(s?.ai?.temperature !== undefined ? s.ai.temperature : 0.2);
-      setCustomPrompt(s?.ai?.customPrompt || '');
-      setDemoMode(s?.demoMode !== false);
-      setMockData(mockRes.data?.data || { mockGoogleSheet: [], mockGmailInbox: [] });
+
+      if (setRes.status === 'fulfilled') {
+        const s = setRes.value.data?.data;
+        setSettings(s);
+        setModel(s?.ai?.model || 'gpt-4o-mini');
+        setTemperature(s?.ai?.temperature !== undefined ? s.ai.temperature : 0.2);
+        setCustomPrompt(s?.ai?.customPrompt || '');
+        setDemoMode(s?.demoMode !== false);
+      }
+
+      if (mockRes.status === 'fulfilled') {
+        setMockData(mockRes.value.data?.data || { mockGoogleSheet: [], mockGmailInbox: [] });
+      }
+
+      if (healthRes.status === 'fulfilled' && healthRes.value?.ok) {
+        setBackendHealth(healthRes.value.data);
+      }
     } catch (err) {
       toast.error('Failed to load settings.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTestBackendHealth = async () => {
+    setCheckingHealth(true);
+    try {
+      const res = await checkBackendHealth();
+      if (res.ok) {
+        setBackendHealth(res.data);
+        toast.success('Connected to backend API successfully (/api/health)');
+      } else {
+        toast.error(res.error || 'Failed to reach backend server.');
+      }
+    } finally {
+      setCheckingHealth(false);
     }
   };
 
@@ -186,6 +214,55 @@ const SettingsPage = () => {
               <span>Demo Mode Enabled</span>
             </label>
           </div>
+
+          {/* Backend Connection & Health Status */}
+          <Card className="space-y-4 border-indigo-500/20 bg-slate-900/60">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-950/80 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white text-sm flex items-center gap-2">
+                    <span>Connected Production API Backend</span>
+                    <Badge variant={backendHealth ? 'active' : 'paused'} size="sm">
+                      {backendHealth ? 'ONLINE' : 'CHECKING'}
+                    </Badge>
+                  </h3>
+                  <span className="text-[11px] text-slate-400 font-mono break-all">{API_BASE_URL}</span>
+                </div>
+              </div>
+              <button
+                onClick={handleTestBackendHealth}
+                disabled={checkingHealth}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-semibold shadow-sm transition-all shrink-0 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${checkingHealth ? 'animate-spin' : ''}`} />
+                <span>{checkingHealth ? 'Testing /api/health...' : 'Test Backend Health'}</span>
+              </button>
+            </div>
+
+            {backendHealth && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-800/80 text-xs">
+                <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                  <span className="text-slate-400 text-[10px] block uppercase font-medium">Service</span>
+                  <span className="text-slate-200 font-semibold truncate block">{backendHealth.service || 'Core Engine'}</span>
+                </div>
+                <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                  <span className="text-slate-400 text-[10px] block uppercase font-medium">AI Engine</span>
+                  <span className="text-purple-300 font-semibold truncate block">{backendHealth.aiEngine || 'NLP Engine'}</span>
+                </div>
+                <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                  <span className="text-slate-400 text-[10px] block uppercase font-medium">Database</span>
+                  <span className="text-emerald-300 font-semibold truncate block">{backendHealth.database?.type || 'Embedded Store'}</span>
+                </div>
+                <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                  <span className="text-slate-400 text-[10px] block uppercase font-medium">Deployment</span>
+                  <span className="text-indigo-300 font-semibold truncate block">{backendHealth.deployment || 'Serverless'}</span>
+                </div>
+              </div>
+            )}
+          </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* OpenAI Card */}

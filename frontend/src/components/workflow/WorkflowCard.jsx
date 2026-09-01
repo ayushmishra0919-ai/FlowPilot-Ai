@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Play, Copy, Check, Power, MoreVertical, GitBranch, ArrowRight, Zap, CheckCircle2, Clock } from 'lucide-react';
 import Badge from '../common/Badge';
 import Card from '../common/Card';
+import { getFullWebhookUrl } from '../../services/api';
 
 const WorkflowCard = ({ workflow, onToggleStatus, onQuickTest }) => {
   const [copied, setCopied] = useState(false);
@@ -10,7 +11,7 @@ const WorkflowCard = ({ workflow, onToggleStatus, onQuickTest }) => {
   const copyWebhook = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const fullUrl = `${window.location.origin}${workflow.webhookUrl}`;
+    const fullUrl = getFullWebhookUrl(workflow.webhookUrl);
     navigator.clipboard.writeText(fullUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

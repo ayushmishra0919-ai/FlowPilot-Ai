@@ -21,7 +21,7 @@ import VisualFlowchart from '../components/workflow/VisualFlowchart';
 import ExecutionDetailModal from '../components/execution/ExecutionDetailModal';
 import { SkeletonCard, SkeletonTable } from '../components/common/LoadingSkeleton';
 import { useToast } from '../context/ToastContext';
-import api from '../services/api';
+import api, { getFullWebhookUrl } from '../services/api';
 
 const WorkflowDetailPage = () => {
   const { id } = useParams();
@@ -74,7 +74,7 @@ const WorkflowDetailPage = () => {
   };
 
   const copyWebhook = () => {
-    const fullUrl = `${window.location.origin}${workflow.webhookUrl}`;
+    const fullUrl = getFullWebhookUrl(workflow.webhookUrl);
     navigator.clipboard.writeText(fullUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -104,7 +104,7 @@ const WorkflowDetailPage = () => {
   const total = workflow.stats?.totalExecutions || 0;
   const success = workflow.stats?.successfulExecutions || 0;
   const rate = total > 0 ? ((success / total) * 100).toFixed(0) : 100;
-  const fullWebhookUrl = `${window.location.origin}${workflow.webhookUrl}`;
+  const fullWebhookUrl = getFullWebhookUrl(workflow.webhookUrl);
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-12">

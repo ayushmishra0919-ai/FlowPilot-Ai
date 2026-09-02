@@ -5,18 +5,26 @@ export const DEFAULT_PRODUCTION_BACKEND_URL = 'https://flowpilot-ai-backend-7m6a
 
 /**
  * Dynamically resolves the API base URL.
- * 1. Checks VITE_API_BASE_URL (standard) or VITE_API_URL if provided.
- * 2. In deployed production environment (non-localhost), automatically routes to the live Vercel backend URL.
- * 3. In local development, defaults to '/api' (proxied by Vite dev server to localhost:5000).
+ * 1. Checks localStorage for any user-configured custom backend URL.
+ * 2. Checks VITE_API_BASE_URL (standard) or VITE_API_URL if provided.
+ * 3. In deployed production environment (non-localhost), defaults to the live Vercel backend URL.
+ * 4. In local development, defaults to '/api' (proxied by Vite dev server).
  */
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const savedCustomUrl = localStorage.getItem('flowpilot_api_url');
+    if (savedCustomUrl && savedCustomUrl.trim()) {
+      const clean = savedCustomUrl.trim().replace(/\/+$/, '');
+      return clean.endsWith('/api') ? clean : `${clean}/api`;
+    }
+  }
+
   const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
   if (envUrl && envUrl.trim()) {
     const cleanUrl = envUrl.trim().replace(/\/+$/, '');
     return cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`;
   }
 
-  // If running in a deployed browser (e.g. *.vercel.app, custom domain), use the live Vercel backend
   if (
     typeof window !== 'undefined' &&
     window.location.hostname &&
@@ -27,6 +35,17 @@ const getBaseUrl = () => {
   }
 
   return '/api';
+};
+
+export const setCustomApiUrl = (url) => {
+  if (typeof window !== 'undefined') {
+    if (url && url.trim()) {
+      const clean = url.trim().replace(/\/+$/, '');
+      localStorage.setItem('flowpilot_api_url', clean);
+    } else {
+      localStorage.removeItem('flowpilot_api_url');
+    }
+  }
 };
 
 export const API_BASE_URL = getBaseUrl();
@@ -42,6 +61,9 @@ const api = axios.create({
 // Request interceptor to attach JWT token
 api.interceptors.request.use(
   (config) => {
+    // Dynamically update baseURL if changed
+    config.baseURL = getBaseUrl();
+
     const token = localStorage.getItem('flowpilot_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -79,18 +101,37 @@ api.interceptors.response.use(
 );
 
 /**
- * Health check helper function (tries /health and /api/health)
+ * Health check helper function (checks /health, /api/health, and /)
  */
-export const checkBackendHealth = async () => {
+export const checkBackendHealth = async (customUrl = null) => {
+  const targetBase = customUrl
+    ? (customUrl.trim().replace(/\/+$/, '').endsWith('/api')
+        ? customUrl.trim().replace(/\/+$/, '')
+        : `${customUrl.trim().replace(/\/+$/, '')}/api`)
+    : getBaseUrl();
+
+  const client = axios.create({
+    baseURL: targetBase,
+    headers: { 'Content-Type': 'application/json' },
+    timeout: 15000
+  });
+
   try {
-    const res = await api.get('/health');
+    const res = await client.get('/health');
     return { ok: true, data: res.data };
-  } catch (err) {
+  } catch (err1) {
     try {
-      const res2 = await api.get('/api/health');
+      const res2 = await client.get('/api/health');
       return { ok: true, data: res2.data };
-    } catch (e) {
-      return { ok: false, error: err.friendlyMessage || err.message };
+    } catch (err2) {
+      try {
+        const rootUrl = targetBase.replace(/\/api$/, '');
+        const res3 = await axios.get(`${rootUrl}/`, { timeout: 15000 });
+        if (res3.data && (res3.data.status === 'HEALTHY' || res3.data.status === 'ONLINE')) {
+          return { ok: true, data: res3.data };
+        }
+      } catch (err3) {}
+      return { ok: false, error: err1.friendlyMessage || err1.message };
     }
   }
 };
@@ -103,9 +144,10 @@ export const getFullWebhookUrl = (webhookPath) => {
   if (webhookPath.startsWith('http://') || webhookPath.startsWith('https://')) {
     return webhookPath;
   }
+  const currentBase = getBaseUrl();
   const cleanPath = webhookPath.startsWith('/') ? webhookPath : `/${webhookPath}`;
-  if (API_BASE_URL.startsWith('http://') || API_BASE_URL.startsWith('https://')) {
-    const rootBackendUrl = API_BASE_URL.replace(/\/api$/, '');
+  if (currentBase.startsWith('http://') || currentBase.startsWith('https://')) {
+    const rootBackendUrl = currentBase.replace(/\/api$/, '');
     return `${rootBackendUrl}${cleanPath}`;
   }
   return `${typeof window !== 'undefined' ? window.location.origin : ''}${cleanPath}`;

@@ -19,7 +19,7 @@ import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import api, { API_BASE_URL, checkBackendHealth } from '../services/api';
+import api, { API_BASE_URL, checkBackendHealth, getBaseUrl, setCustomApiUrl, DEFAULT_PRODUCTION_BACKEND_URL } from '../services/api';
 
 const SettingsPage = () => {
   const { user } = useAuth();
@@ -39,6 +39,7 @@ const SettingsPage = () => {
   const [demoMode, setDemoMode] = useState(true);
   const [backendHealth, setBackendHealth] = useState(null);
   const [checkingHealth, setCheckingHealth] = useState(false);
+  const [customBackendInput, setCustomBackendInput] = useState(getBaseUrl());
 
   const fetchSettingsData = async () => {
     try {
@@ -74,7 +75,8 @@ const SettingsPage = () => {
   const handleTestBackendHealth = async () => {
     setCheckingHealth(true);
     try {
-      const res = await checkBackendHealth();
+      setCustomApiUrl(customBackendInput);
+      const res = await checkBackendHealth(customBackendInput);
       if (res.ok) {
         setBackendHealth(res.data);
         toast.success('Connected to backend API successfully (/api/health)');
@@ -84,6 +86,12 @@ const SettingsPage = () => {
     } finally {
       setCheckingHealth(false);
     }
+  };
+
+  const handleResetBackendUrl = () => {
+    setCustomApiUrl(null);
+    setCustomBackendInput(DEFAULT_PRODUCTION_BACKEND_URL);
+    toast.info('Reset backend API URL to default production endpoint.');
   };
 
   useEffect(() => {
@@ -226,20 +234,45 @@ const SettingsPage = () => {
                   <h3 className="font-semibold text-white text-sm flex items-center gap-2">
                     <span>Connected Production API Backend</span>
                     <Badge variant={backendHealth ? 'active' : 'paused'} size="sm">
-                      {backendHealth ? 'ONLINE' : 'CHECKING'}
+                      {backendHealth ? 'ONLINE' : 'OFFLINE / UNREACHABLE'}
                     </Badge>
                   </h3>
-                  <span className="text-[11px] text-slate-400 font-mono break-all">{API_BASE_URL}</span>
+                  <p className="text-xs text-slate-400">Configure and verify your live Vercel backend endpoint.</p>
                 </div>
               </div>
-              <button
-                onClick={handleTestBackendHealth}
-                disabled={checkingHealth}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-semibold shadow-sm transition-all shrink-0 disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${checkingHealth ? 'animate-spin' : ''}`} />
-                <span>{checkingHealth ? 'Testing /api/health...' : 'Test Backend Health'}</span>
-              </button>
+            </div>
+
+            {/* Editable Backend URL Input */}
+            <div className="space-y-2 pt-2 border-t border-slate-800/80">
+              <label className="text-xs font-semibold text-slate-300">Backend API URL</label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={customBackendInput}
+                  onChange={(e) => setCustomBackendInput(e.target.value)}
+                  placeholder="https://your-backend.vercel.app/api"
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-mono text-indigo-300 focus:outline-none focus:border-indigo-500"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleTestBackendHealth}
+                    disabled={checkingHealth}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-all disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${checkingHealth ? 'animate-spin' : ''}`} />
+                    <span>{checkingHealth ? 'Testing...' : 'Save & Test API'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResetBackendUrl}
+                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium transition-colors"
+                    title="Reset to default Vercel backend"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
             </div>
 
             {backendHealth && (
